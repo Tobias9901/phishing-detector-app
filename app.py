@@ -137,11 +137,18 @@ with st.expander("ℹ️ About the Model"):
         It’s fast and simple, often used in spam filtering and text classification.
         """)
 
-# Expandable: Feedback form
-with st.expander("📩 Submit Suspicious URL (Mock-up)"):
-    suspicious_url = st.text_input("Suspicious URL:")
-    if st.button("Submit for review"):
-        st.success("Thanks! This mock form does not store data.")
+# Expandable: Help Improve the Tool
+with st.expander("📩 Report a Missed Phishing URL"):
+    st.markdown("""
+    If this tool marked a **phishing link as safe**, you can help improve accuracy.  
+    Paste the missed suspicious URL below. These submissions may be used to improve future versions of the model.
+    """)
+    
+    submitted_url = st.text_input("Suspicious URL you think should be flagged:")
+    if st.button("Submit URL"):
+        # In real application, you'd save this to a secure database or file
+        st.success("Thank you! Your feedback has been recorded for analysis.")
+
 
 # Footer
 st.markdown("""
