@@ -1,154 +1,127 @@
 import streamlit as st
+from PIL import Image
 import joblib
+import numpy as np
+import pandas as pd
 from features_extraction import extract_features
 
-# Load models
-rf_model = joblib.load("model_rf.pkl")
-svm_model = joblib.load("model_svm.pkl")
-nb_model = joblib.load("model_nb.pkl")
+# Set custom page config
+st.set_page_config(
+    page_title="Phishing Detector",
+    page_icon="🔐",
+    layout="wide"
+)
 
-# Page config
-st.set_page_config(page_title="Phishing URL Checker", layout="wide")
-st.title("🔍 Phishing URL Checker")
+# Load logo
+logo = Image.open("logo.png")
+st.sidebar.image(logo, width=150)
 
-st.markdown("This simple tool helps you check if a website link might be **phishing** or **safe**, using smart machine learning models.")
+# Sidebar - Help & Info
+st.sidebar.title("🔹 Help & Info")
+st.sidebar.markdown("""
+**How to Use**
+- Paste a URL in the input field
+- Choose a detection model
+- Click **Check This URL** to run prediction
 
-# ========== SIDEBAR ==========
-with st.sidebar.expander("🎣 What is Phishing?", expanded=False):
-    st.markdown("""
-    **Phishing** is a type of online scam where attackers trick people into clicking on fake links or entering sensitive information.
+**What is Phishing?**
+Phishing sites are fake websites used to steal personal info. They may:
+- Look nearly identical to trusted sites
+- Use strange symbols or misspellings
+- Trick users into clicking unsafe links
 
-    These websites often:
-    - Look very real
-    - Use long, confusing links
-    - Include numbers and symbols to look legitimate
+**Examples:**
+- `https://login-facebook.security-alert.com`
+- `https://apple-id-reset-login.info`
 
-    This tool helps detect phishing attempts by analyzing the link itself.
-    """)
+:warning: *This tool makes predictions using machine learning. It may not always be correct.*
+""")
 
-with st.sidebar.expander("ℹ️ How This Tool Works", expanded=False):
-    st.markdown("""
-    **This tool uses machine learning** to analyze website links (URLs) and predict if they are safe or suspicious.
+# Custom CSS for theme
+st.markdown("""
+    <style>
+    html, body, [class*="css"]  {
+        font-family: 'Open Sans', sans-serif;
+        background-color: #f4f6f9;
+    }
+    .main h1 {color: #003366; font-size: 3em;}
+    .stButton > button {
+        background-color: #003366;
+        color: white;
+        border-radius: 8px;
+    }
+    footer {visibility: hidden;}
+    .footer-text {
+        text-align: center;
+        font-size: 0.8em;
+        color: #888;
+        margin-top: 50px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-    - You enter a link
-    - We extract simple features:
-        - Length of the link
-        - Number of numbers
-        - Number of symbols
-    - A trained model checks if the pattern matches known phishing techniques
-    - You get a result with explanation and confidence
+# Header
+st.title("🔐 Phishing URL Detector")
+st.markdown("""
+This tool helps you detect whether a URL is **phishing** or **legitimate** using machine learning.
+Paste a link, choose a model, and get a result instantly.
+""")
 
-    No personal data is collected or saved.
-    """)
+# Input URL
+url_input = st.text_input("Paste a website URL (e.g. https://login-bank-example.com)", "https://google.com")
 
-# ========== MAIN APP ==========
-st.write("👋 **Paste a website link below and choose a model. Then click 'Check This URL' to get a result.**")
+# Model selection
+model_option = st.selectbox("Choose a model:", ["Random Forest", "Support Vector Machine", "Naive Bayes"])
+model_map = {
+    "Random Forest": joblib.load("model_rf.pkl"),
+    "Support Vector Machine": joblib.load("model_svm.pkl"),
+    "Naive Bayes": joblib.load("model_nb.pkl")
+}
+model = model_map[model_option]
 
-# Input
-url_input = st.text_input("🔗 Website URL (e.g. https://login-bank.example.com)")
-model_choice = st.selectbox("🧠 Choose a Model", ["Random Forest", "SVM", "Naïve Bayes"])
-
-# Model selector and description
-if model_choice == "Random Forest":
-    selected_model = rf_model
-    with st.expander("🌲 About Random Forest", expanded=True):
-        st.markdown("""
-        Random Forest is a model made up of many small decision trees.  
-        It works well with noisy data and handles real-world phishing patterns effectively.
-        """)
-elif model_choice == "SVM":
-    selected_model = svm_model
-    with st.expander("💡 About SVM", expanded=True):
-        st.markdown("""
-        Support Vector Machine (SVM) finds the best boundary between phishing and safe URLs.  
-        It’s highly accurate with clean, text-based data like URLs.
-        """)
-else:
-    selected_model = nb_model
-    with st.expander("📊 About Naïve Bayes", expanded=True):
-        st.markdown("""
-        Naïve Bayes is a fast, lightweight model based on probability.  
-        It works well as a baseline for spam and phishing detection.
-        """)
-
-# Predict button
-if st.button("✅ Check This URL"):
-    if url_input:
-        features_dict = extract_features(url_input)
-        features = list(features_dict.values())
-
-        prediction = selected_model.predict([features])[0]
-
+# Predict
+if st.button("Check This URL"):
+    with st.spinner("Analyzing the URL, please wait..."):
         try:
-            proba = selected_model.predict_proba([features])[0][1]
-            confidence = proba if prediction == 1 else 1 - proba
-        except:
-            confidence = None
+            features = extract_features(url_input)
+            X = pd.DataFrame([features.values()], columns=features.keys())
+            prediction = model.predict(X)[0]
 
-        # Display result
-        if prediction == 1:
-            st.markdown("<h1 style='text-align: center; color: red;'>🔴</h1>", unsafe_allow_html=True)
-            st.markdown("## 🚨 This website might be a **phishing site**.")
-            st.error("Be cautious. This link looks suspicious.")
-        else:
-            st.markdown("<h1 style='text-align: center; color: green;'>🟢</h1>", unsafe_allow_html=True)
-            st.markdown("## ✅ This website looks **safe**.")
-            st.success("No signs of phishing were detected.")
+            if hasattr(model, "predict_proba"):
+                confidence = round(np.max(model.predict_proba(X)) * 100, 2)
+            else:
+                confidence = "-"
 
-        if confidence is not None:
-            st.markdown(f"**Confidence:** {confidence:.2%}")
-            st.progress(confidence)
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                st.metric(
+                    label="\n\nResult",
+                    value="\n\n🟢 Legitimate" if prediction == 0 else "🔴 Phishing",
+                    delta=f"Confidence: {confidence}%" if confidence != "-" else ""
+                )
+            with col2:
+                st.info("""
+                    **Why this result?**  
+                    Based on the URL's length, digits, dashes, symbols, and structure — the model flagged it accordingly.
+                """)
+        except Exception as e:
+            st.error("Something went wrong during prediction.")
+            st.exception(e)
 
-        # 🧠 Why This Result?
-        with st.expander("🔍 Why This Result?", expanded=False):
-            for name, value in features_dict.items():
-                explanation = ""
-                if prediction == 1:  # Phishing
-                    if name == "url_length":
-                        explanation = "Long URLs can be used to disguise dangerous links."
-                    elif name == "special_char_count":
-                        explanation = "Too many symbols can be used to confuse or trick users."
-                    elif name == "digit_count":
-                        explanation = "Phishing URLs often use numbers to imitate real sites."
-                else:  # Legitimate
-                    if name == "url_length":
-                        explanation = "This URL is short and easy to read — typical of safe websites."
-                    elif name == "special_char_count":
-                        explanation = "This URL has few symbols, which is normal for legitimate sites."
-                    elif name == "digit_count":
-                        explanation = "There are few or no digits — phishing sites often use numbers to deceive."
+# Expandable: About the Model
+with st.expander("ℹ️ About the Model"):
+    st.markdown(f"This page uses a **{model_option}** classifier trained on real-world phishing URLs. It analyzes lexical URL patterns.")
 
-                st.markdown(f"- **{name.replace('_', ' ').title()}**: {value} → {explanation}")
-
-        # Save history
-        if "history" not in st.session_state:
-            st.session_state.history = []
-        st.session_state.history.append((url_input, model_choice, prediction))
-
-    else:
-        st.warning("⚠️ Please paste a URL to check.")
-
-# History
-st.markdown("---")
-if "history" in st.session_state and st.session_state.history:
-    with st.expander("🕓 View Past Checks", expanded=False):
-        for url, model, result in st.session_state.history[-5:][::-1]:
-            label = "Phishing" if result == 1 else "Legitimate"
-            icon = "🚨" if result == 1 else "✅"
-            st.markdown(f"- {icon} **{url}** → {label} ({model})")
+# Expandable: Feedback form
+with st.expander("📩 Submit Suspicious URL (Mock-up)"):
+    suspicious_url = st.text_input("Suspicious URL:")
+    if st.button("Submit for review"):
+        st.success("Thanks! This mock form does not store data.")
 
 # Footer
-# Disclaimer at the bottom of the page
-st.markdown("---")
-st.caption("⚠️ This tool may occasionally make incorrect predictions. Always use caution and verify suspicious URLs through trusted sources.")
-
-st.markdown("---")
-st.caption("Phishing Detection Web App | Dissertation Project | 2025")
-
-
-
-
-
-
-
-
+st.markdown("""
+<div class="footer-text">
+Developed by Tobias, 2025 | <a href="https://github.com/Tobias9901/phishing-detector-app" target="_blank">GitHub</a>  
+This tool is for educational use only. It may make mistakes.
+</div>
+""", unsafe_allow_html=True)
