@@ -4,6 +4,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from features_extraction import extract_features
+import streamlit.components.v1 as components
 
 # Set custom page config
 st.set_page_config(
@@ -14,7 +15,7 @@ st.set_page_config(
 
 # Load logo
 logo = Image.open("logo.png")
-st.sidebar.image(logo, width=150)
+st.sidebar.image(logo, width=100)  # smaller logo
 
 # Sidebar - Help & Info
 st.sidebar.title("🔹 Help & Info")
@@ -67,6 +68,15 @@ This tool helps you detect whether a URL is **phishing** or **legitimate** using
 Paste a link, choose a model, and get a result instantly.
 """)
 
+# Video Tutorial Embed
+st.markdown("### 🎥 Quick Guide: How to Use the Tool")
+components.iframe(
+    "https://share.synthesia.io/embeds/videos/a4b47e01-c10f-45c9-9f00-aae417154b8d",
+    height=320,
+    width=570,
+    scrolling=False
+)
+
 # Input URL
 url_input = st.text_input("Paste a website URL (e.g. https://login-bank-example.com)", "https://google.com")
 
@@ -110,7 +120,22 @@ if st.button("Check This URL"):
 
 # Expandable: About the Model
 with st.expander("ℹ️ About the Model"):
-    st.markdown(f"This page uses a **{model_option}** classifier trained on real-world phishing URLs. It analyzes lexical URL patterns.")
+    if model_option == "Random Forest":
+        st.markdown("""
+        This tool uses a **Random Forest** classifier — an ensemble method that combines many decision trees.  
+        It analyzes lexical features like URL length, number of symbols, digits, and structural patterns to make predictions.  
+        It's robust and effective for detecting phishing based on known patterns in real-world URLs.
+        """)
+    elif model_option == "Support Vector Machine":
+        st.markdown("""
+        This model uses a **Support Vector Machine (SVM)**, which finds the optimal boundary between phishing and legitimate URLs.  
+        It works well for high-dimensional feature spaces like lexical URL data.
+        """)
+    elif model_option == "Naive Bayes":
+        st.markdown("""
+        This model uses **Naïve Bayes**, a probabilistic approach that assumes feature independence.  
+        It’s fast and simple, often used in spam filtering and text classification.
+        """)
 
 # Expandable: Feedback form
 with st.expander("📩 Submit Suspicious URL (Mock-up)"):
